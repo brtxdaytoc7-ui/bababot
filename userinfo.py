@@ -5,9 +5,10 @@ import os # Bu satır şifreyi gizli dosyadan çekmek için şart
 
 class MyBot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.default()
-        intents.members = True
-        intents.message_content = True
+       intents = discord.Intents.default()
+       intents.members = True  # Üye bilgilerini (roller, tarihler) görmek için
+       intents.presences = True # Durum bilgilerini görmek için
+       intents.message_content = True # Mesaj içeriği için
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
