@@ -1,59 +1,61 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
-import os # Bu satır şifreyi gizli dosyadan çekmek için şart
+from discord import app_commands
+import os
+from flask import Flask
+from threading import Thread
+
+# Render için ayakta tutma sistemi
+app = Flask('')
+@app.route('/')
+def home():
+    return "Bot aktif!"
+
+def run():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Bot ayarları ve Yetkiler (Intents)
+intents = discord.Intents.default()
+intents.members = True        # Üye bilgilerini çekmek için şart!
+intents.message_content = True 
 
 class MyBot(commands.Bot):
     def __init__(self):
-       intents = discord.Intents.default()
-       intents.members = True  # Üye bilgilerini (roller, tarihler) görmek için
-       intents.presences = True # Durum bilgilerini görmek için
-       intents.message_content = True # Mesaj içeriği için
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Komutları Discord'a tanımlar
+        # Komutları Discord'a kaydeder
         await self.tree.sync()
-        print(f"✅ Sistem hazır: {self.user.name}")
+        print(f"Komutlar senkronize edildi: {self.user}")
 
 bot = MyBot()
 
-# --- 1. GİZLİ UI KOMUTU ---
-@bot.tree.command(name="ui", description="Kullanıcı bilgilerini sadece sana özel gösterir")
-async def ui(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    embed = discord.Embed(title=f"👤 Profil: {member.display_name}", color=member.color)
-    embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="🆔 ID", value=f"`{member.id}`", inline=True)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+@bot.event
+async def on_ready():
+    print(f'✅ Giriş yapıldı: {bot.user}')
 
-# --- 2. GİZLİ AVATAR KOMUTU ---
-@bot.tree.command(name="avatar", description="Avatarı sadece sana özel gösterir")
-async def avatar(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    embed = discord.Embed(title=f"🖼️ {member.name} - Avatar")
-    embed.set_image(url=member.display_avatar.url)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+@bot.tree.command(name="ui", description="Kullanıcı bilgisini gösterir")
+async def ui(interaction: discord.Interaction, üye: discord.Member = None):
+    üye = üye or interaction.user
+    
+    embed = discord.Embed(title=f"👤 Kullanıcı Bilgisi: {üye.name}", color=discord.Color.blue())
+    embed.add_field(name="🆔 ID", value=üye.id, inline=False)
+    embed.add_field(name="📅 Katılma Tarihi", value=üye.joined_at.strftime("%d/%m/%Y"), inline=True)
+    embed.add_field(name="🎭 Roller", value=", ".join([role.mention for role in üye.roles if role.name != "@everyone"]) or "Yok", inline=False)
+    embed.set_thumbnail(url=üye.display_avatar.url)
+    
+    await interaction.response.send_message(embed=embed)
 
-# --- 3. GİZLİ SİLME KOMUTU ---
-@bot.tree.command(name="sil", description="Belirtilen miktar kadar mesajı siler")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def sil(interaction: discord.Interaction, miktar: int):
-    await interaction.response.defer(ephemeral=True)
-    deleted = await interaction.channel.purge(limit=miktar)
-    await interaction.followup.send(f"🧹 **{len(deleted)}** mesaj temizlendi.", ephemeral=True)
+@bot.tree.command(name="avatar", description="Avatarı gösterir")
+async def avatar(interaction: discord.Interaction, üye: discord.Member = None):
+    üye = üye or interaction.user
+    await interaction.response.send_message(üye.display_avatar.url)
 
-# --- 4. GİZLİ DM KOMUTU ---
-@bot.tree.command(name="dm", description="Bir kullanıcıya özel mesaj atar")
-@app_commands.checks.has_permissions(administrator=True)
-async def dm(interaction: discord.Interaction, member: discord.Member, mesaj: str):
-    try:
-        await member.send(f"📩 **Sunucudan Mesaj:** {mesaj}")
-        await interaction.response.send_message(f"✅ Mesaj iletildi.", ephemeral=True)
-        print(f"MESAJ GÖNDERİLDİ: {member.name} -> {mesaj}")
-    except:
-        await interaction.response.send_message("❌ DM kapalı.", ephemeral=True)
-
-# --- TOKEN ÇALIŞTIRICI ---
-# Buraya sakın şifreni yazma! Render panelinden 'DISCORD_TOKEN' adıyla ekleyeceğiz.
-bot.run(os.getenv('DISCORD_TOKEN'))
+# Başlat
+keep_alive()
+token = os.getenv('DISCORD_TOKEN')
+bot.run(token)
