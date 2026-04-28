@@ -5,13 +5,24 @@ import os
 from flask import Flask
 from threading import Thread
 
-# --- RENDER CANLI TUTMA ---
+# --- RENDER CANLI TUTMA (GÜÇLENDİRİLMİŞ) ---
 app = Flask('')
-@app.route('/')
-def home(): return "İstihbarat İstasyonu Aktif!"
-def run(): app.run(host='0.0.0.0', port=10000)
-def keep_alive(): Thread(target=run).start()
 
+@app.route('/')
+def home(): 
+    return "İstihbarat İstasyonu Aktif!"
+
+def run():
+    # Render'ın atadığı portu otomatik bulur, hata payını sıfırlar.
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.daemon = True # Bot kapandığında temizlenmesi için
+    t.start()
+
+# --- BOT KURULUMU ---
 intents = discord.Intents.default()
 intents.members = True        
 intents.message_content = True 
@@ -112,5 +123,6 @@ async def sil(interaction: discord.Interaction, miktar: int):
     await interaction.followup.send(f"✅ {len(deleted)} mesaj temizlendi.", ephemeral=True)
 
 # --- BAŞLAT ---
-keep_alive()
-bot.run(os.getenv('DISCORD_TOKEN'))
+if __name__ == "__main__":
+    keep_alive() # Önce web sunucusunu uyandır
+    bot.run(os.getenv('DISCORD_TOKEN'))
